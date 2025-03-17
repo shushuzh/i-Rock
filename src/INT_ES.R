@@ -131,52 +131,149 @@ for (i in seq_along(centers)) {
 }
 
 
-mRock_KNN_q0_both <- function(xdata, ydata, tau, K, qt.fun,
-                              delta = 0.9, wins = 0.5, ds, nsubsample, kmed.start = T,
+mRock_KNN_q0_both <- function(xdata, ydata, tau, delta = 0.9, ds=0.001,
+                              K=500, qt.fun=function(x,y,tt){rq(y~x,tt)$fitted},
+                              wins = 0.5, nsubsample=5, kmed.start = T,
                               ll_weight = T,disjoint_bin = F){
   ## The same as 'mRock_KNN_both', but uses a "USER-SPECIFIED" global quantile regression
   ## qt.fun: the global quantile regression function
   ## qt.fun -> input: with three input: [X (no intercept) ,Y, tau (a fine grid vector)]
   ## qt.fun -> output: a matrix of dimension n (sample size) by length(tau)
   ##
+  xdata = as.matrix(xdata)
   n = length(ydata)
-  p = NCOL(xdata)
- 
+  p = ncol(xdata)
+  
   # disjoint bins
   if (disjoint_bin){
-    # Calculate quantile breaks such that we have num_bins
-    breaks <- quantile(xdata, probs = seq(0, 1, length.out = ceiling(n/K) + 1))
-    # Create the bins
-    bins <- cut(xdata, breaks = breaks, include.lowest = TRUE)
-    # Get indices for each bin
-    indices_per_bin <- split(seq_along(xdata), bins)
-    # Combine the list into a matrix
-    indices.knn <- do.call(rbind, lapply(indices_per_bin, `length<-`, max(lengths(indices_per_bin))))
-    # Calculate bin centers
-    centers <- (breaks[-length(breaks)] + breaks[-1]) / 2
-    # Create a matrix to hold indices of bin centers
-    nsubsample = length(centers)
-    use.idx <- numeric(nsubsample)
-    # For each bin
-    for (i in seq_along(centers)) {
-      # Find the index of data point that is closest to the center of the bin
-      use.idx[i] <- which.min(abs(xdata - centers[i]))
+    print("disjoint bin")
+    disc_col = which(apply(xdata, 2,function(col) length(unique(col))) < 13)
+    
+    # Binning #
+    if (length(disc_col)==0){ ### only continuous variables
+      print("All continuous covariates")
+      xcont = xdata
+      ## binning ##
+      cut_per_column = function(x1,bin_num){
+        breaks <- quantile(x1, probs = seq(0, 1, length.out = bin_num + 1))
+        # Create the bins
+        bins <- cut(x1, breaks = breaks, include.lowest = TRUE, dig.lab=5)
+        return(bins)
+      }
+      
+      bins_per_column = lapply(as.data.frame(xcont),cut_per_column,bin_num = nsubsample)#ceiling(nsubsample^{1/p}))
+      combined = interaction(bins_per_column)
+      indices.knn <- split(1:n, combined)
+      indices.knn = indices.knn[sapply(indices.knn, function(x) length(x) != 0)]
+      
+      ## Calculate the centers of each bin ##
+      calculate_mean <- function(interval_str) {
+        interval_str <- gsub("\\(|\\)|\\[|\\]", "", interval_str)  # Remove '[' or '('
+        # Split by comma and convert to numeric
+        values <- as.numeric(unlist(strsplit(interval_str, ",")))
+        # Calculate mean
+        mean_value <- mean(values)
+        return(mean_value)
+      }
+      mean_intervals <- function(intervals){
+        intervals_str <- strsplit(intervals, "(?<=\\])\\.", perl = TRUE)[[1]]
+        means <- sapply(intervals_str, calculate_mean)
+        return(means)
+      }
+      centers = lapply(names(indices.knn),mean_intervals)
+      
+      nsubsample <- length(indices.knn)
+      use.idx <- numeric(nsubsample)
+      for (i in seq_len(nsubsample)) {
+        center = as.numeric(centers[[i]])
+        bin_indices = indices.knn[[i]]
+        bin_data = as.matrix(xcont[bin_indices,])
+        bin_center_indix = which.min(rowSums((bin_data - center)^2))
+        use.idx[i] = bin_indices[bin_center_indix]
+      }
+    } else if (length(disc_col)==p){ ### only discrete variables
+      print("All discrete covariates")
+      unique_rows <- unique(xdata)
+      indices_list <- lapply(1:nrow(unique_rows), function(i) which(apply(xdata, 1, function(row) all(row == unique_rows[i,]))))
+      tau.seq <- seq(tau - delta * tau, tau + delta * (1 - tau), by = ds)
+      ES_int <- foreach::foreach(i = 1:length(indices_list), .combine = 'rbind', .inorder = TRUE) %dopar% {
+        index <- indices_list[[i]]
+        y_local <- ydata[index]
+        quantiles <- quantile(y_local, tau.seq, type = 6)
+        ES <- sapply(quantiles, function(quant) mean(y_local[y_local >= quant]))
+        cbind(rep(length(index), length(ES)), matrix(rep(xdata[index[1], ], length(ES)), ncol = length(xdata[index[1], ]),byrow=TRUE), ES)
+      }
+      Res_disc = rq(ES_int[,p+2]~ES_int[,2:(p+1)],tau,weights=ES_int[,1])$coefficients
+      return( list('Neyman' = Res_disc))
+    } else { ### both continuous and discrete variables
+      xcont = as.matrix(xdata[,-disc_col])
+      xdisc = as.matrix(xdata[,disc_col])
+      # Step 1: Create bins for the discrete variable
+      unique_disc_values <- unique(xdisc)
+      bins_disc <- as.factor(xdisc)
+      indices_per_bin_disc <- split(seq_along(xdisc), bins_disc)
+      
+      # Step 2: Create bins for the continuous variable
+      cut_per_column = function(x1,bin_num){
+        breaks <- quantile(x1, probs = seq(0, 1, length.out = bin_num + 1))
+        # Create the bins
+        bins <- cut(x1, breaks = breaks, include.lowest = TRUE, dig.lab=5)
+        return(bins)
+      }
+      bins_xcont = lapply(as.data.frame(xcont),cut_per_column,bin_num = nsubsample)#(nsubsample/length(indices_per_bin_disc))^{1/p_cont}))
+      cont_combine = interaction(bins_xcont)
+      
+      # Step 3: Combine bins from both variables
+      combined_bins <- expand.grid(bins_xcont = levels(bins_xcont), bins_disc = unique_disc_values)
+      combined <- interaction(cont_combine, bins_disc)
+      indices.knn <- split(1:n, combined)
+      indices.knn = indices.knn[sapply(indices.knn, function(x) length(x) != 0)]
+      # Step 4: Find indices of data points closest to the centers of combined bins
+            ## Calculate the centers of each bin ##
+      calculate_mean <- function(interval_str) {
+        interval_str <- gsub("\\(|\\)|\\[|\\]", "", interval_str)  # Remove '[' or '('
+        # Split by comma and convert to numeric
+        values <- as.numeric(unlist(strsplit(interval_str, ",")))
+        # Calculate mean
+        mean_value <- mean(values)
+        return(mean_value)
+      }
+      mean_intervals <- function(intervals){
+        intervals_str <- strsplit(intervals, "(?<=\\])\\.", perl = TRUE)[[1]]
+        intervals_str <- intervals_str[1:ncol(xcont)]
+        means <- sapply(intervals_str, calculate_mean)
+        return(means)
+      }
+      centers = lapply(names(indices.knn),mean_intervals)
+      
+      # Step 5: Initialize vector to hold indices of closest data points
+      nsubsample <- length(indices.knn)
+      use.idx <- numeric(nsubsample)
+      for (i in seq_len(nsubsample)) {
+        center = as.numeric(centers[[i]])
+        bin_indices = indices.knn[[i]]
+        bin_data = as.matrix(xcont[bin_indices,])
+        bin_center_indix = which.min(rowSums((bin_data - center)^2))
+        use.idx[i] = bin_indices[bin_center_indix]
+      }
     }
-  } else{ 
-  ##### Subsamples and cauculate KNN #####
-  if (nsubsample >= n){
-    use.idx = seq(1,n)
-    nsubsample = n
-  } else if (kmed.start){
-	  kmed = fastclarans(dist(xdata),n,nsubsample)
-    use.idx = 1+attr(kmed,'medoids')
-    bin_size = table(attr(kmed,'assignment'))
   } else{
-    use.idx = sample(n, nsubsample, replace = F)
+    ##### Subsamples and cauculate KNN #####
+    if (nsubsample >= n){
+      use.idx = seq(1,n)
+      nsubsample = n
+    } else if (kmed.start){
+      kmed = fastclarans(dist(xdata),n,nsubsample)
+      use.idx = 1+attr(kmed,'medoids')
+      bin_size = table(attr(kmed,'assignment'))
+      #use.idx = 1+attr(fastclarans(dist(xdata),n,nsubsample),'medoids')
+    } else{
+      use.idx = sample(n, nsubsample, replace = F)
+    }
+    indices.knn = knnx.index(as.matrix(xdata),query = as.matrix(xdata)[use.idx,,drop = F],k = K)
   }
-  indices.knn = knnx.index(as.matrix(xdata),query = as.matrix(xdata)[use.idx,,drop = F],k = K)
-  }
-
+  
+      
   ##### Set the full quantile grid (after winsorizing) #####
   ds = max(ds,3/(n*log(n)))
   tau.full.grid = seq(0, 1, ds)
@@ -190,22 +287,24 @@ mRock_KNN_q0_both <- function(xdata, ydata, tau, K, qt.fun,
   
   ##### Get the initial quantile and then SQ estimation #####
   qt.estimates = qt.fun(xdata,ydata,tau.full.grid)
-  Rock.SQ = Rock_KNN0_subsample(as.matrix(xdata),ydata,indices.knn, 
+  Rock.SQ = Rock_KNN0_subsample(as.matrix(xcont),ydata,indices.knn,
                                 use.idx, tau.full.grid,
                                 qt.estimates,
-                                sq_score = 'Both')
-  Rock.SQ.NM = Rock.SQ[1:nsubsample,]
-  Rock.SQ.LS = Rock.SQ[1:nsubsample + nsubsample,]
+                                sq_score = 'Neyman')
+  Rock.SQ.NM = Rock.SQ
+  #Rock.SQ.NM = Rock.SQ[1:nsubsample,]
+  #Rock.SQ.LS = Rock.SQ[1:nsubsample + nsubsample,]
 
   res_Rock_Neyman = matrix(NA,p+1,length(tau))
-  res_Rock_LS = matrix(NA,p+1,length(tau))
+  #res_Rock_LS = matrix(NA,p+1,length(tau))
+  #res_Rock_Neyman_adjust = matrix(NA,p+1,length(tau))
   for(tt in 1:length(tau)){
-    ##### Fit the i-Rock method for each tau #####
+    ##### Fit the m-Rock method for each tau #####
     tau.use = tau[tt]
     lower.fit.idx = min(which(tau.full.grid-(ds/2) >= tau.use - wins*delta*tau.use))
     upper.fit.idx = max(which(tau.full.grid+(ds/2) <= tau.use + delta*tau.use))
     fit.idx = seq(lower.fit.idx,upper.fit.idx)
-    
+
     ## Fill in winsorization
     if((0 < wins) & (wins < 1)){
       N.extend = max(0,round((quantile(tau.full.grid[fit.idx],tau.use) - tau.use)/((1-tau.use)*ds) ))
@@ -214,26 +313,23 @@ mRock_KNN_q0_both <- function(xdata, ydata, tau, K, qt.fun,
       N.extend = 0
     }
     Rock.SQ.NM.use = my_winsor_mat2(Rock.SQ.NM[,fit.idx],N.extend)
-    Rock.SQ.LS.use = my_winsor_mat2(Rock.SQ.LS[,fit.idx],N.extend)
-    
+    #Rock.SQ.LS.use = my_winsor_mat2(Rock.SQ.LS[,fit.idx],N.extend)
+
     ## Add local-linear weights and flatten the covariate matrix
     if(ll_weight){
-      bin_weights = my_weights(xdata,indices.knn)
+      bin_weights = my_weights(xdata,indices.knn,use.idx)
       #bin_weights = as.vector(bin_size)
       X_fin = cbind(1,do.call("rbind", rep(list(as.matrix(xdata)[use.idx,,drop=F]),N.extend + length(fit.idx) )))
       X_fin = sweep(X_fin,1,bin_weights,'*')
       Rock.SQ.NM.use = sweep(as.matrix(Rock.SQ.NM.use),1,bin_weights,'*')
-      Rock.SQ.LS.use = sweep(as.matrix(Rock.SQ.LS.use),1,bin_weights,'*')
+      #Rock.SQ.LS.use = sweep(as.matrix(Rock.SQ.LS.use),1,bin_weights,'*')
     } else {
       X_fin = cbind(1,do.call("rbind", rep(list(as.matrix(xdata)[use.idx,,drop=F]),N.extend + length(fit.idx) )))
     }
     res_Rock_Neyman[,tt] = suppressWarnings(rq.fit(X_fin, as.vector(Rock.SQ.NM.use) ,tau.use, method = 'pfn')$coef)
-    res_Rock_LS[,tt] = suppressWarnings(rq.fit(X_fin, as.vector(Rock.SQ.LS.use) ,tau.use, method = 'pfn')$coef)
-    
   }
   colnames(res_Rock_Neyman) = paste('tau =',tau)
-  colnames(res_Rock_LS) = paste('tau =',tau)
-  return( list('Neyman' = res_Rock_Neyman, 'LS' = res_Rock_LS))#,'asyvar_Neyman'=asy_var_hat) )
+  return( list('Neyman' = res_Rock_Neyman))
 }
 
 
