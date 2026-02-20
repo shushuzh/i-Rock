@@ -1,13 +1,9 @@
 #include <RcppArmadillo.h>
 #include <Rcpp.h>
-//#include "/home/shushuz/R_libs/RcppArmadillo/include/RcppArmadillo.h"
-//#include "/home/shushuz/R_libs/Rcpp/include/Rcpp.h"
 #include <math.h>
 using namespace Rcpp;
 using namespace arma;
-// [[Rcpp::plugins("cpp11")]]
-// [[Rcpp::depends(RcppArmadillo)]]
-// [[Rcpp::export]]
+
 vec rho_rq_function(vec u, double theta) {
     return theta * arma::max(u, vec(u.n_elem,fill::zeros)) + (theta - 1) * arma::min(u, vec(u.n_elem,fill::zeros));
 }
@@ -15,43 +11,23 @@ vec rho_rq_function(vec u, double theta) {
 vec quickrq(const vec& y, const mat& x, const double& tau=0.5, const int& kmax=20, const double& big=1e+20, const double& eps=0.000001, const double& beta=0.97) {
     int n = y.n_elem;
     int p = x.n_cols;
-    //if(int_ == true) {
-    //    mat ones(n, 1, fill::ones);
-    //    x.insert_cols(0, ones);
-    //}
-    //if(w.n_elem == 0) {
     vec w = vec(n, fill::zeros);
-    //}
 
     double yw = big;
     int k = 1;
     vec coef(p);
     while(k <= kmax && std::abs(dot(y, w)/yw - 1) > eps) {
         vec d = arma::min(tau - w, 1 - tau + w);
-        //arma::mat W = arma::diagmat(d);
-	//arma::mat X_d = x.each_col() % d;
-        //vec y_d = y % d;
   // Solve the weighted least squares problem
 	coef = arma::solve(x.each_col() % d, y % d);
-//Rcout<<"k:"<<k<<endl;
-//	Rcout<<coef<<endl;
   	vec resid = y - x * coef;
         yw = sum(vec(rho_rq_function(resid, tau)));
         k++;
         vec s =  resid % d % d;
 	double alpha = std::max(eps, std::max(static_cast<double>(arma::max(s/(tau - w))), static_cast<double>(arma::max(-s/(1 - tau + w)))));
-	//double alpha = std::max(arma::datum::eps, arma::max(arma::max(s/(tau - w)),arma::max( -s/(1 - tau + w))))[0];
-        w = w + (beta/alpha) * s;
+	    w = w + (beta/alpha) * s;
     }
- //   Rcout<<"kmax:"<<k<<endl;
-    //vec res = y - x * beta;
-    //double zero_res = arma::sort(arma::abs(res))(X.n_rows - 1); 
-    //uvec zero_id = arma::find(abs(res) <= zero_res);
-    //for(arma::uword j=0; j<zero_id.n_elem; j++) {
-    //    res(zero_id(j)) = 0;
-    //}
     return coef;
-    //return List::create(Named("coef")=coef, Named("res")=res);
 }
 
 

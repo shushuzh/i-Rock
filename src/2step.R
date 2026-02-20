@@ -21,11 +21,38 @@ model_2step = lm(Z_2step~x)
 return(model_2step$coefficients)
 }
 
+weighted_two_step = function(y,x,w,alpha){
+  quan = rq.fit(cbind(1,x),as.vector(y),alpha, method = 'pfn')
+  coef_quan = quan$coef
+  eta_hat = coef_quan[-1]
+  eta0 = coef_quan[1]
+  Z_2step = apply(cbind(y,x),MARGIN = 1,FUN = Z_beta,beta=eta_hat,alpha=alpha,beta_0=eta0)
+  model_2step = lm(Z_2step~x,weights=w)
+  return(model_2step$coefficients)
+}
+
+
 two_step_trivial = function(y,x,alpha){
-quan = rq.fit(cbind(1,x),as.vector(y),alpha, method = 'pfn')
-beta_hat = quan$coef[-1]
-beta0 = quan$coef[1]
-index = y-x%*%beta_hat-beta0>0
-model_2step = lm(y[index]~x[index,])
-return(model_2step$coefficients)
+  quan = rq.fit(cbind(1,x),as.vector(y),alpha, method = 'pfn')
+  beta_hat = quan$coef[-1]
+  beta0 = quan$coef[1]
+  index = y-x%*%beta_hat-beta0>0
+  model_2step = lm(y[index]~x[index,])
+  return(model_2step$coefficients)
+}
+
+three_step = function(y,x,alpha){
+  quan = rq.fit(cbind(1,x),as.vector(y),alpha, method = 'pfn')
+  coef_quan = quan$coef
+  eta_hat = coef_quan[-1]
+  eta0 = coef_quan[1]
+  Z_2step = apply(cbind(y,x),MARGIN = 1,FUN = Z_beta,beta=eta_hat,alpha=alpha,beta_0=eta0)
+  model_2step = lm(Z_2step~x)
+  beta_hat = model_2step$coefficients
+  diff_sq <- (beta_hat - coef_quan)^2
+  X_mat <- cbind(1, x)                        # add intercept
+  denom <- as.vector(X_mat %*% diff_sq)       # inner product per obs
+  weight <- 1 / denom
+  model_3step = lm(Z_2step~x,weights=weight)
+  return(model_3step$coefficients)
 }
