@@ -18,11 +18,11 @@ This repository contains the R and C++ implementation of the **i-Rock** methodol
 
 ## Workflow for Reproducibility
 
-(1)  **Environment Setup:** Ensure R and a C++ compiler are installed. Install dependencies: `Rcpp`, `RcppArmadillo`, `conquer`, `quantreg`, and `FNN`.
-(2)  **Simulation:** 
+*   **Environment Setup:** Ensure R and a C++ compiler are installed. Install dependencies: `Rcpp`, `RcppArmadillo`, `conquer`, `quantreg`, and `FNN`.
+*   **Simulation:** 
     * Run the three R scripts in `/simulations` to generate the performance metrics for the three synthetic examples.
     * Use `Process_data_final.ipynb` to generate figures and tables in the main manuscript and supplementary materials. 
-(3)  **Data Application:**
+*   **Data Application:**
     * Run `data_application_processing.R` to prepare the data.
     * Run `data_application_final.R` to produce the regression coefficients.
     * Run `data_application_bootstrap.R` in parallel to estimate the standard error.
