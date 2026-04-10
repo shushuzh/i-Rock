@@ -1,7 +1,8 @@
-source("../src/INT_ES_disjoint.R") #ES initializers
-source("../src/2step.R") #two-step method
+setwd("/Users/shushuzhang/Desktop/i-Rock")
+source("./src/INT_ES_disjoint.R") #ES initializers
+source("./src/2step.R") #two-step method
 
-ES_M_rock_2x = function(n,p,tau,seed){# method = "ES_rf" or "ES_qrf"
+ES_M_rock_2x = function(n,tau,seed,save_path="./simulations/results/"){# method = "ES_rf" or "ES_qrf"
   set.seed(seed)
   ### Set the data and main parameters
   p = 2
@@ -100,7 +101,8 @@ ES_M_rock_2x = function(n,p,tau,seed){# method = "ES_rf" or "ES_qrf"
                           time_mean_quantile[3]))
   colnames(d1) <- c("Method","tau","n","p","seed","num_bin",paste0("beta", 0:2),"time")
   res_final = rbind(Res_grid_K,d,d1)
-  write.table(res_final,file=paste("./results_2d_nl/n",n,"p",p,"tau",tau,"seed",seed,".csv",sep=""),sep=",",
+  print(res_final)
+  write.table(res_final,file=paste(save_path,"n",n,"p",p,"tau",tau,"seed",seed,".csv",sep=""),sep=",",
               row.names=FALSE)
   return(0)
 }

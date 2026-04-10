@@ -1,9 +1,10 @@
-source("../src/INT_ES_disjoint.R") #ES initializers
-source("../src/2step.R") #two-step method
+setwd("/Users/shushuzhang/Desktop/i-Rock")
+source("./src/INT_ES_disjoint.R") #ES initializers
+source("./src/2step.R") #two-step method
 
 data_application = function(tau,seed,n_boot){
   set.seed(seed)
-  data_design <- read.csv("/home/shushuz/M_rock/design_matrix_main.csv")
+  data_design <- read.csv("./data_applications/design_matrix_main.csv")
   x = as.matrix(data_design[,c(3,4,5,6,7,8,9)])
   #x = as.matrix(data_design[,-c(1,2)])
   y = -data_design[,2]
@@ -34,6 +35,6 @@ data_application = function(tau,seed,n_boot){
   
   results = rbind(c("i-Rock",1-tau,-R$Neyman),c("two-step",1-tau,-res_2step))
   colnames(results) = c("Method","tau","intercept","Black","Asian","Hispanic","visit>10","visit6-10","diabete","hypertension")#,"cigarette"),"age<=19","age>=35","WIC","unmarried","college","some college")
-  write.table(results,file=paste("/home/shushuz/M_rock/results_data_application_few_covariates_boot_linear/tau",1-tau,"seed",seed,"n",n_boot,".csv",sep=""),sep=",",
+  write.table(results,file=paste("./data_applications/results_data_application_few_covariates_boot_linear/tau",1-tau,"seed",seed,"n",n_boot,".csv",sep=""),sep=",",
               row.names=FALSE)
 }

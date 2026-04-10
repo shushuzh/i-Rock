@@ -1,7 +1,8 @@
-source("../src/INT_ES_disjoint.R") #ES initializers
-source("../src/2step.R") #two-step method
+setwd("/Users/shushuzhang/Desktop/i-Rock")
+source("./INT_ES_disjoint.R") #ES initializers
+source("./src/2step.R") #two-step method
 
-ES_M_rock_2x = function(n,p,tau,seed){
+ES_M_rock_2x = function(n,tau,seed,save_path="./simulations/results/"){
   set.seed(seed)
   ### Set the data and main parameters
   p = 2
@@ -46,8 +47,7 @@ ES_M_rock_2x = function(n,p,tau,seed){
                       ll_weight =use_ll_weights,disjoint_bin=disjoint_bin)
   # Bins based on discrete covariates
   ptm = proc.time()
-  R = do.call(mRock_KNN_q0_both,c(list(xdata = x, ydata = y,tau = tau,K = K,
-                                       qt.fun = function(x,y,tt){quantreg::rq.fit(cbind(1,x),as.vector(y),tt, method = 'pfn')}  ),
+  R = do.call(mRock_KNN_q0_both,c(list(xdata = x, ydata = y,tau = tau,K = K),
                                   param.others))
   Res_mrock = R$Neyman - beta_true
   time = proc.time() - ptm
@@ -71,7 +71,7 @@ ES_M_rock_2x = function(n,p,tau,seed){
   d<-as.data.frame(cbind(c("two_step_Neyman","two_step_LS","mRock","Average of linear quantiles"),
                          tau,n,p,seed,t(cbind(res_2step,res_2step_trivial,Res_mrock,Res_mean_quantile)),c(time_2step[3],time_2step[3],time[3],time_mean_quantile[3])))
   colnames(d) <- c("Method","tau","n","p","seed",paste0("beta", 0:p),"time")
-  write.table(d,file=paste("/home/shushuz/M_rock/results_2d_discrete/n",n,"p",p,"tau",tau,"seed",seed,".csv",sep=""),sep=",",
+  write.table(d,file=paste(save_path,"n",n,"p",p,"tau",tau,"seed",seed,".csv",sep=""),sep=",",
               row.names=FALSE)
   return(0)
 }

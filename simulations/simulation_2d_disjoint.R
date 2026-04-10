@@ -1,7 +1,8 @@
-source("../src/INT_ES_disjoint.R") #ES initializers
-source("../src/2step.R") #two-step method
+setwd("/Users/shushuzhang/Desktop/i-Rock")
+source("./src/INT_ES_disjoint.R") #ES initializers
+source("./src/2step.R") #two-step method
 
-ES_M_rock_2x = function(n,p,tau,seed){
+ES_M_rock_2x = function(n,tau,seed,save_path="./simulations/results/"){
   set.seed(seed)
   ### Set the data and main parameters
   p = 2
@@ -110,7 +111,7 @@ ES_M_rock_2x = function(n,p,tau,seed){
                          c(time_2step[3],time_2step_trivial[3])))
   colnames(d) <- c("Method","tau","n","p","seed","num_bin",paste0("beta", 0:p),"time")
   res_final = rbind(Res_grid_K,d)
-  write.table(res_final,file=paste("./results_2d/n",n,"p",p,"tau",tau,"seed",seed,".csv",sep=""),sep=",",
+  write.table(res_final,file=paste(save_path,"n",n,"p",p,"tau",tau,"seed",seed,".csv",sep=""),sep=",",
               row.names=FALSE)
   
   return(0)

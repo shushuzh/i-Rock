@@ -1,6 +1,3 @@
-options(CBoundsCheck = T)
-sourceCpp('./mRock_KNN_disjoint.cpp')
-source('./pred_drf.R')
 library(mvtnorm)
 library(randomForest)
 library(conquer)
@@ -9,7 +6,7 @@ library(RColorBrewer)
 library(quantregForest)
 library(compare)
 library(doParallel)
-library(MonoInc)
+# library(MonoInc)
 library(Rcpp)
 library(RcppArmadillo)
 library(fastkmedoids)
@@ -19,6 +16,10 @@ library(quantreg)
 library(splines)
 library(zoo)
 library(drf)
+options(CBoundsCheck = T)
+sourceCpp("./src/mRock_KNN_disjoint.cpp")
+source('./src/pred_drf.R')
+
 
 #### Preparation functions ###
 my_winsor_mat2 <- function(A, nrep){
@@ -303,7 +304,7 @@ mRock_KNN_q0_both <- function(xdata, ydata, tau, delta = 0.9, ds=0.001,
 		indices_list <- lapply(1:nrow(unique_rows), function(i) which(apply(xdata, 1, function(row) all(row == unique_rows[i,]))))
 		tau.seq <- seq(tau - delta * tau, tau + delta * (1 - tau), by = ds)
 		if(!is.null(qt.fun)){
-                	print("global linear quantile function")
+		  print("user specified global quantile function")
 			qt.coefs <- qt.fun(xdata, ydata, tau.seq)
 			}
 		ES_int <- foreach::foreach(i = 1:length(indices_list), .combine = 'rbind', .inorder = TRUE) %dopar% {

@@ -1,3 +1,4 @@
+// [[Rcpp::depends(RcppArmadillo)]]
 #include <RcppArmadillo.h>
 #include <Rcpp.h>
 #include <math.h>
@@ -124,7 +125,7 @@ mat Local_Qt_KNN(const mat& X, const vec& Y,
   mat Res_val(n,T);
   vec u(Y.n_elem);
   vec f(3);
-  double f0_prime;
+  //double f0_prime;
   mat Q(p,p);
   vec XXQX(p,fill::zeros);
   mat XXX = zeros(p,p*p);
@@ -166,7 +167,7 @@ mat Local_Qt_KNN_coef(const mat& X, const vec& Y,
    * Input tau_list: a vector of targeted quantile levels
    * Output: a matrix of dimension NROW(X) by LENGTH(tau_list) for the fitted values
    */
-  int n = X.n_rows;
+  //int n = X.n_rows;
   int p = X.n_cols;
   int T = tau_list.n_elem;
   mat qt_coef(p,T);
