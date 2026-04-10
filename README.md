@@ -20,7 +20,7 @@ This repository contains the R and C++ implementation of the **i-Rock** methodol
 
 *   **Environment Setup:** Ensure R and a C++ compiler are installed. Install dependencies: `Rcpp`, `RcppArmadillo`, `conquer`, `quantreg`, and `FNN`.
 *   **Simulation:** 
-    * Run the three R scripts in `/simulations` to generate the performance metrics for the three synthetic examples. Run the three R scripts in `/simulations` to for three simulation examples. Adapt it to your parallel computing machine by calling function ES_M_rock_2x(n,tau,seed) for different number of observations n, quantile level tau, and seed. 
+    * Run the three R scripts in `/simulations` to generate the performance metrics for the three synthetic examples. Run the three R scripts in `/simulations` to for three simulation examples. Adapt it to your parallel computing machine by calling function `ES_M_rock_2x(n,tau,seed)` for different number of observations n, quantile level tau, and seed. 
     * Use `Process_data_final.ipynb` to generate figures and tables in the main manuscript and supplementary materials. 
 *   **Data Application:**
     * Run `data_application_processing.R` to prepare the data.
